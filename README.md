@@ -1,4 +1,4 @@
-# puku
+# 𓃴 puku
 
 ## 🤔 What is puku? 
 A comprehensive machine learning library.
