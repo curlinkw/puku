@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Optional, Sequence, Any
 from langchain_core.documents.base import Blob, PathLike
 
@@ -96,6 +97,11 @@ class PandocBlobTransformer(SubprocessBlobTransformer):
         Returns:
             Sequence[Blob]: _description_
         """
+
+        if shutil.which("pandoc") is None:
+            raise FileNotFoundError(
+                "Pandoc is not installed. Please install it from https://pandoc.org/installing.html"
+            )
 
         return super().transform_blobs(
             blobs=blobs, output_dir=output_dir, standalone=standalone, **kwargs
