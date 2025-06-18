@@ -9,3 +9,7 @@ if TYPE_CHECKING:
 
 class BaseEdge(Serializable):
     child: BaseNode
+
+    @classmethod
+    def is_lc_serializable(cls) -> bool:
+        return True

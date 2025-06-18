@@ -27,6 +27,10 @@ class BaseNode(Serializable):
 
         return traversal
 
+    @classmethod
+    def is_lc_serializable(cls) -> bool:
+        return True
+
 
 class TraversalNode(Serializable):
     """A Node with metadata returned during various traversals of the tree"""
