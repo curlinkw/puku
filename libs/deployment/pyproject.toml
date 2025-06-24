@@ -6,16 +6,22 @@ authors = [
     {name = "curlink19",email = "p.kurochkin200@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "pydantic (>=2.11.7,<3.0.0)",
     "transformers (>=4.52.4,<5.0.0)",
     "optimum[exporters] (>=1.26.1,<2.0.0)",
     "sentence-transformers (>=4.1.0,<5.0.0)",
     "accelerate (>=1.8.1,<2.0.0)",
+    "onnxruntime-extensions (>=0.14.0,<0.15.0)",
+    "spox (>=0.16.0,<0.17.0)",
+    "puku-core @ file:///home/curlink/workspace/projects/puku/libs/core",
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+puku-core = {develop = true}

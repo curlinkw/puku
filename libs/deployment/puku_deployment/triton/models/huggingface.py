@@ -12,7 +12,12 @@ from puku_deployment.triton.models.base import (
     TritonPythonModel,
     TritonEnsembleModel,
 )
-from puku_deployment.triton.models.config import TritonModelConfig
+from puku_deployment.triton.models.config import (
+    TritonONNXModelConfig,
+    TritonPythonModelConfig,
+    TritonTensorConfig,
+    TritonDataType,
+)
 
 
 class OptimumCLIException(Exception):
@@ -88,10 +93,9 @@ class HuggingFaceONNXModel(TritonONNXModel):
         if self.save_cache:
             self._model_onnx_cache = onnx.load(model_path)
 
-    def get_config(self, **kwargs) -> TritonModelConfig:
-        return TritonModelConfig(
+    def get_config(self, **kwargs) -> TritonONNXModelConfig:
+        return TritonONNXModelConfig(
             name=self.huggingface_model_name.replace("/", "_"),
-            platform="onnxruntime_onnx",
         )
 
     @experimental(
@@ -148,6 +152,7 @@ class HFTokenizerPythonModel(TritonPythonModel):
     def get_model_code(self) -> str:
         return f"""
 import json
+import os
 import numpy as np
 import triton_python_backend_utils as pb_utils
 from transformers import AutoTokenizer
@@ -156,67 +161,113 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class TritonPythonModel:
     def initialize(self, args):
         \"\"\"
-        Initialize the tokenizer during model loading.
+        Initialize the tokenizer from the model repository directory.
         \"\"\"
         self.model_config = json.loads(args["model_config"])
 
         try:
             # Load tokenizer from model repository
-            self.tokenizer = AutoTokenizer.from_pretrained("{self.huggingface_model_name}")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                "{self.huggingface_model_name}"
+            )
             logger.info("Tokenizer loaded successfully")
 
-            # Validate output configuration
-            output_config = pb_utils.get_output_config_by_name(self.model_config, "{self.output_input_ids_name}")
-            self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
+            # Get output data types from config
+            output_config_ids = pb_utils.get_output_config_by_name(
+                self.model_config, {self.output_input_ids_name}
+            )
+            self.output_dtype_ids = pb_utils.triton_string_to_numpy(
+                output_config_ids["data_type"]
+            )
+
+            output_config_mask = pb_utils.get_output_config_by_name(
+                self.model_config, {self.output_attention_mask_name}
+            )
+            self.output_dtype_mask = pb_utils.triton_string_to_numpy(
+                output_config_mask["data_type"]
+            )
 
         except Exception as e:
-            logger.error("Initialization failed: " + str(e))
+            logger.error(f"Initialization failed: " + str(e))
             raise
 
     def execute(self, requests):
-        \"\"\"
-        Process requests and return tokenized outputs.
-        \"\"\"
         responses = []
 
         for request in requests:
             try:
-                # Get input tensor (byte strings)
-                input_text = pb_utils.get_input_tensor_by_name(request, "{self.input_name}")
-                text_batch = [t.decode("UTF-8") for t in input_text.as_numpy().flatten()]
+                # Get input text
+                input_tensor = pb_utils.get_input_tensor_by_name(
+                    request, {self.input_name}
+                )
+                input_text = input_tensor.as_numpy().tolist()
+                text_batch = [t.decode("UTF-8") for t in input_text]
 
                 # Tokenize batch
                 tokenized = self.tokenizer(
                     text_batch,
                     padding=True,
                     truncation=True,
+                    max_length=self.tokenizer.model_max_length,
                     return_tensors="np",
-                    max_length=self.tokenizer.model_max_length
+                )
+
+                # Convert to appropriate output types
+                input_ids = tokenized["input_ids"].astype(self.output_dtype_ids)
+                attention_mask = tokenized["attention_mask"].astype(
+                    self.output_dtype_mask
                 )
 
                 # Create output tensors
-                input_ids = tokenized["input_ids"].astype(self.output_dtype)
-                attention_mask = tokenized["attention_mask"].astype(self.output_dtype)
+                out_tensor_ids = pb_utils.Tensor(
+                    {self.output_input_ids_name}, input_ids
+                )
+                out_tensor_mask = pb_utils.Tensor(
+                    {self.output_attention_mask_name}, attention_mask
+                )
 
-                # Build Triton response
-                out_tensors = [
-                    pb_utils.Tensor("{self.output_input_ids_name}", input_ids),
-                    pb_utils.Tensor("{self.output_attention_mask_name}", attention_mask)
-                ]
-                responses.append(pb_utils.InferenceResponse(output_tensors=out_tensors))
+                # Build response
+                responses.append(
+                    pb_utils.InferenceResponse(
+                        output_tensors=[out_tensor_ids, out_tensor_mask]
+                    )
+                )
 
             except Exception as e:
-                logger.error("Request processing failed: " + str(e))
-                responses.append(pb_utils.InferenceResponse(
-                    error=pb_utils.TritonError("Processing error: " + str(e))
-                ))
+                logger.error(f"Request failed: " + str(e))
+                responses.append(
+                    pb_utils.InferenceResponse(
+                        error=pb_utils.TritonError(f"Processing error: " + str(e))
+                    )
+                )
 
         return responses
 """
 
-
-class HFTransformerModel(TritonEnsembleModel):
-    pass
+    def get_config(self, **kwargs) -> TritonPythonModelConfig:
+        return TritonPythonModelConfig(
+            name=self.huggingface_model_name.replace("/", "_") + "_tokenizer",
+            input=[
+                TritonTensorConfig(
+                    name=self.input_name,
+                    dims=[-1],
+                    data_type=TritonDataType.TYPE_STRING,
+                )
+            ],
+            output=[
+                TritonTensorConfig(
+                    name=self.output_input_ids_name,
+                    dims=[-1, -1],
+                    data_type=TritonDataType.TYPE_INT64,
+                ),
+                TritonTensorConfig(
+                    name=self.output_attention_mask_name,
+                    dims=[-1, -1],
+                    data_type=TritonDataType.TYPE_INT64,
+                ),
+            ],
+        )

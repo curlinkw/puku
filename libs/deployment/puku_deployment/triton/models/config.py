@@ -1,7 +1,20 @@
 import os
 import onnx
-from typing import Iterable
-from pydantic import BaseModel, Field
+from typing import Iterable, ClassVar, TypeVar, Generic, Self
+from pydantic import BaseModel, Field, ConfigDict
+
+SERIALIZING_CLASS_KEY: str = "type"
+
+
+class TritonDataType(BaseModel):
+    TYPE_FP32: ClassVar[str] = "TYPE_FP32"
+    TYPE_FP16: ClassVar[str] = "TYPE_FP16"
+    TYPE_INT32: ClassVar[str] = "TYPE_INT32"
+    TYPE_INT64: ClassVar[str] = "TYPE_INT64"
+    TYPE_INT8: ClassVar[str] = "TYPE_INT8"
+    TYPE_UINT8: ClassVar[str] = "TYPE_UINT8"
+    TYPE_BOOL: ClassVar[str] = "TYPE_BOOL"
+    TYPE_STRING: ClassVar[str] = "TYPE_STRING"
 
 
 class TritonTensorConfig(BaseModel):
@@ -16,9 +29,6 @@ class TritonModelConfig(BaseModel):
     input: list[TritonTensorConfig] = Field(default_factory=list)
     output: list[TritonTensorConfig] = Field(default_factory=list)
 
-    def set_io_from_onnx(self, model: onnx.ModelProto) -> None:
-        self.input, self.output = convert_onnx_to_triton_io_tensors(model)
-
     def save(self, model_repository_path: str) -> None:
         text = json_to_pbtxt(config=self.model_dump(), indent=2)
         with open(
@@ -27,16 +37,66 @@ class TritonModelConfig(BaseModel):
             f.write(text)
 
 
+class TritonONNXModelConfig(TritonModelConfig):
+    platform: str = "onnxruntime_onnx"
+
+    def set_io_from_onnx(self, model: onnx.ModelProto) -> None:
+        self.input, self.output = convert_onnx_to_triton_io_tensors(model)
+
+
+class TritonPythonModelConfig(TritonModelConfig):
+    platform: str = "python"
+
+
+MapType = TypeVar("MapType")
+
+
+class ListOfMaps(BaseModel, Generic[MapType]):
+    type: str = "ListOfMaps"
+    maps: list[MapType] = Field(default_factory=list)
+
+    @classmethod
+    def from_maps(cls, maps: list[MapType]) -> Self:
+        return cls(maps=maps)
+
+
+class DataMapType(BaseModel):
+    key: str
+    value: str
+
+
+DataMaps = ListOfMaps[DataMapType]
+
+
+class TritonEnsembleStepConfig(BaseModel):
+    model_name: str
+    model_version: int = -1
+    input_map: DataMaps = Field(default_factory=DataMaps)
+    output_map: DataMaps = Field(default_factory=DataMaps)
+
+
+class StepMapType(BaseModel):
+    step: list[TritonEnsembleStepConfig] = Field(default_factory=list)
+
+
+StepMaps = ListOfMaps[StepMapType]
+
+
+class TritonEnsembleModelConfig(TritonModelConfig):
+    platform: str = "ensemble"
+    ensemble_scheduling: StepMaps = Field(default_factory=StepMaps)
+
+
 def convert_onnx_to_triton_tensor(tensor: onnx.ValueInfoProto) -> TritonTensorConfig:
-    ONNX_TO_TRITON_DATA_TYPE_TABLE = {
-        1: "TYPE_FP32",
-        10: "TYPE_FP16",
-        6: "TYPE_INT32",
-        7: "TYPE_INT64",
-        3: "TYPE_INT8",
-        2: "TYPE_UINT8",
-        9: "TYPE_BOOL",
-        8: "TYPE_STRING",
+    ONNX_TO_TRITON_DATA_TYPE_TABLE: dict[int, str] = {
+        1: TritonDataType.TYPE_FP32,
+        10: TritonDataType.TYPE_FP16,
+        6: TritonDataType.TYPE_INT32,
+        7: TritonDataType.TYPE_INT64,
+        3: TritonDataType.TYPE_INT8,
+        2: TritonDataType.TYPE_UINT8,
+        9: TritonDataType.TYPE_BOOL,
+        8: TritonDataType.TYPE_STRING,
     }  # not full
 
     elem_type = tensor.type.tensor_type.elem_type
@@ -67,7 +127,7 @@ def convert_onnx_to_triton_io_tensors(
     return _convert(model.graph.input), _convert(model.graph.output)
 
 
-def json_to_pbtxt(config: dict, indent: int = 0) -> str:
+def json_to_pbtxt(config: dict, indent: int = 2) -> str:
     def _contains_config(data: list) -> bool:
         return dict in map(type, data)
 
@@ -92,9 +152,8 @@ def json_to_pbtxt(config: dict, indent: int = 0) -> str:
         for key, value in data.items():
             if value is None:
                 continue
-
             if isinstance(value, list) and _contains_config(value):
-                lines.append(f"{prefix_indent}{key}: [")
+                lines.append(f"{prefix_indent}{key} [")
                 for i, item in enumerate(value):
                     if isinstance(item, dict):
                         lines.append(f"{prefix_indent + indent_step}{{")
@@ -111,9 +170,21 @@ def json_to_pbtxt(config: dict, indent: int = 0) -> str:
                         )
                 lines.append(f"{prefix_indent}]")
             elif isinstance(value, dict):
-                lines.append(f"{prefix_indent}{{")
-                lines.extend(convert_json(value, prefix_indent + indent_step))
-                lines.append(f"{prefix_indent}}}")
+                _type = value.get(SERIALIZING_CLASS_KEY, None)
+                if _type is None:
+                    lines.append(f"{prefix_indent}{{")
+                    lines.extend(convert_json(value, prefix_indent + indent_step))
+                    lines.append(f"{prefix_indent}}}")
+                elif _type == "ListOfMaps":
+                    if not ("maps" in value):
+                        raise ValueError(f"The type {_type} does not match")
+
+                    for _map in value["maps"]:
+                        lines.append(f"{prefix_indent}{key} {{")
+                        lines.extend(convert_json(_map, prefix_indent + indent_step))
+                        lines.append(f"{prefix_indent}}}")
+                else:
+                    raise ValueError(f"Could not serialize type {_type}")
             else:
                 # Special case: Skip max_batch_size if 0 (Triton convention)
                 if key == "max_batch_size" and value == 0:
