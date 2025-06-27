@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from puku_deployment.triton.models.config import (
     TritonModelConfig,
     TritonONNXModelConfig,
+    TritonPythonModelConfig,
     TritonEnsembleModelConfig,
     TritonTensorConfig,
     TritonEnsembleStepConfig,
@@ -21,7 +22,7 @@ class TritonModel(BaseModel):
     def get_config(self, **kwargs) -> TritonModelConfig:
         raise NotImplementedError
 
-    def save(self, model_repository_path: str, **kwargs) -> None:
+    def save(self, model_repository_path: str, **kwargs) -> TritonModelConfig:
         raise NotImplementedError
 
 
@@ -35,7 +36,7 @@ class TritonONNXModel(TritonModel):
     def get_config(self, **kwargs) -> TritonONNXModelConfig:
         raise NotImplementedError
 
-    def save(self, model_repository_path: str, **kwargs) -> None:
+    def save(self, model_repository_path: str, **kwargs) -> TritonONNXModelConfig:
         config: TritonONNXModelConfig = self.get_config(**kwargs)
         model_path = os.path.join(model_repository_path, config.name, "1", "model.onnx")
         create_path(model_path)
@@ -47,6 +48,7 @@ class TritonONNXModel(TritonModel):
         )
         config.set_io_from_onnx(model_onnx)
         config.save(model_repository_path=model_repository_path)
+        return config
 
 
 class TritonPythonModel(TritonModel):
@@ -61,12 +63,16 @@ class TritonPythonModel(TritonModel):
         with open(path, "w") as f:
             f.write(code)
 
-    def save(self, model_repository_path: str, **kwargs) -> None:
+    def get_config(self, **kwargs) -> TritonPythonModelConfig:
+        raise NotImplementedError
+
+    def save(self, model_repository_path: str, **kwargs) -> TritonPythonModelConfig:
         config = self.get_config(**kwargs)
         model_path = os.path.join(model_repository_path, config.name, "1", "model.py")
         create_path(model_path)
         self.export_python(path=model_path)
         config.save(model_repository_path=model_repository_path)
+        return config
 
 
 class TritonEnsembleModel(TritonModel):
@@ -159,3 +165,11 @@ class TritonEnsembleModel(TritonModel):
                 ensemble_scheduling=StepMaps(maps=[StepMapType(step=steps)]),
             )
         )
+
+    def get_config(self, **kwargs) -> TritonEnsembleModelConfig:
+        return self.config
+
+    def save(self, model_repository_path: str, **kwargs) -> TritonEnsembleModelConfig:
+        config = self.config
+        config.save(model_repository_path=model_repository_path)
+        return config

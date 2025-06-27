@@ -3,6 +3,8 @@ import onnx
 from typing import Iterable, ClassVar, TypeVar, Generic, Self
 from pydantic import BaseModel, Field, ConfigDict
 
+from puku_deployment.utils.os import create_path
+
 SERIALIZING_CLASS_KEY: str = "type"
 
 
@@ -30,10 +32,10 @@ class TritonModelConfig(BaseModel):
     output: list[TritonTensorConfig] = Field(default_factory=list)
 
     def save(self, model_repository_path: str) -> None:
+        config_path = os.path.join(model_repository_path, self.name, "config.pbtxt")
+        create_path(config_path)
         text = json_to_pbtxt(config=self.model_dump(), indent=2)
-        with open(
-            os.path.join(model_repository_path, self.name, "config.pbtxt"), "w"
-        ) as f:
+        with open(config_path, "w") as f:
             f.write(text)
 
 
