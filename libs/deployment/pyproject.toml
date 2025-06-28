@@ -17,6 +17,7 @@ dependencies = [
     "spox (>=0.16.0,<0.17.0)",
     "puku-core @ file:///home/curlinkw/workspace/projects/puku/libs/core",
     "docker (>=7.1.0,<8.0.0)",
+    "conda-pack (>=0.8.1,<0.9.0)",
 ]
 
 

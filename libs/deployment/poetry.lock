@@ -309,6 +309,21 @@ files = [
 test = ["flake8 (==3.7.8)", "hypothesis (==3.55.3)"]
 
 [[package]]
+name = "conda-pack"
+version = "0.8.1"
+description = "Package conda environments for redistribution"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "conda_pack-0.8.1-py2.py3-none-any.whl", hash = "sha256:4ac43dbb5b5a1ee6f10df27f83fd227bfdd8a99cb2acbe6d05f1e5a0a681d307"},
+    {file = "conda_pack-0.8.1.tar.gz", hash = "sha256:eccb8ca49def7bae14430bfa7930d4876800ec83138a98d2e8b7bb7f9973319b"},
+]
+
+[package.dependencies]
+setuptools = "*"
+
+[[package]]
 name = "docker"
 version = "7.1.0"
 description = "A Python library for the Docker Engine API."
@@ -2927,4 +2942,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "943c31eec53f34751568242717debfa5073ca2f13e6f496dd41c7b2133edd903"
+content-hash = "4327b3e27adb9fee1d525df66b39251bd1fef1b9773ba29b09d19e2730011722"

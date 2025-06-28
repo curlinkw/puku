@@ -3,6 +3,7 @@ import onnx
 import shutil
 import subprocess
 from typing import Optional
+from pydantic import Field
 from transformers import AutoTokenizer
 from onnxruntime_extensions import gen_processing_models
 
@@ -148,6 +149,9 @@ class HFTokenizerPythonModel(TritonPythonModel):
     input_name: str = "text"
     output_input_ids_name: str = "input_ids"
     output_attention_mask_name: str = "attention_mask"
+    dependencies: list[str] = Field(
+        default_factory=lambda: ["transformers", "libstdcxx-ng"]
+    )
 
     def get_model_code(self) -> str:
         return f"""
@@ -178,14 +182,14 @@ class TritonPythonModel:
 
             # Get output data types from config
             output_config_ids = pb_utils.get_output_config_by_name(
-                self.model_config, {self.output_input_ids_name}
+                self.model_config, "{self.output_input_ids_name}"
             )
             self.output_dtype_ids = pb_utils.triton_string_to_numpy(
                 output_config_ids["data_type"]
             )
 
             output_config_mask = pb_utils.get_output_config_by_name(
-                self.model_config, {self.output_attention_mask_name}
+                self.model_config, "{self.output_attention_mask_name}"
             )
             self.output_dtype_mask = pb_utils.triton_string_to_numpy(
                 output_config_mask["data_type"]
@@ -202,7 +206,7 @@ class TritonPythonModel:
             try:
                 # Get input text
                 input_tensor = pb_utils.get_input_tensor_by_name(
-                    request, {self.input_name}
+                    request, "{self.input_name}"
                 )
                 input_text = input_tensor.as_numpy().tolist()
                 text_batch = [t.decode("UTF-8") for t in input_text]
@@ -224,10 +228,10 @@ class TritonPythonModel:
 
                 # Create output tensors
                 out_tensor_ids = pb_utils.Tensor(
-                    {self.output_input_ids_name}, input_ids
+                    "{self.output_input_ids_name}", input_ids
                 )
                 out_tensor_mask = pb_utils.Tensor(
-                    {self.output_attention_mask_name}, attention_mask
+                    "{self.output_attention_mask_name}", attention_mask
                 )
 
                 # Build response

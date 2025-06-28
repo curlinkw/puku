@@ -1,7 +1,7 @@
 import os
 import onnx
 from typing import Optional, Self, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from puku_deployment.triton.models.config import (
     TritonModelConfig,
@@ -14,7 +14,9 @@ from puku_deployment.triton.models.config import (
     DataMaps,
     StepMaps,
     StepMapType,
+    Parameters,
 )
+from puku_deployment.python.environment import create_packed_conda_environment
 from puku_deployment.utils.os import create_path
 
 
@@ -41,11 +43,23 @@ class TritonONNXModel(TritonModel):
         model_path = os.path.join(model_repository_path, config.name, "1", "model.onnx")
         create_path(model_path)
         self.export_onnx(path=model_path)
+
+        # Explicit set of io from onnx
+        model_onnx: onnx.ModelProto = (
+            onnx.load(model_path)
+            if (self._model_onnx_cache is None)
+            else self._model_onnx_cache
+        )
+        config.set_io_from_onnx(model_onnx)
+
         config.save(model_repository_path=model_repository_path)
         return config
 
 
 class TritonPythonModel(TritonModel):
+    python_version: str = "3.12"
+    dependencies: list[str] = Field(default_factory=list)
+
     def get_model_code(self) -> str:
         """Get model.py code in the form of
         https://github.com/triton-inference-server/python_backend#usage
@@ -57,15 +71,37 @@ class TritonPythonModel(TritonModel):
         with open(path, "w") as f:
             f.write(code)
 
+    def export_conda_environment(self, path: str):
+        create_packed_conda_environment(
+            path=path,
+            dependencies=self.dependencies,
+            python_version=self.python_version,
+        )
+
     def get_config(self, **kwargs) -> TritonPythonModelConfig:
         raise NotImplementedError
 
     def save(self, model_repository_path: str, **kwargs) -> TritonPythonModelConfig:
+        conda_environment_name = f"python{self.python_version}.tar.gz"
+
+        # Configuration
         config = self.get_config(**kwargs)
-        model_path = os.path.join(model_repository_path, config.name, "1", "model.py")
+        config.parameters = Parameters(
+            key="EXECUTION_ENV_PATH",
+            value=f"$$TRITON_MODEL_DIRECTORY/{conda_environment_name}",
+        )
+
+        # Set up paths
+        model_dir = os.path.join(model_repository_path, config.name)
+        model_path = os.path.join(model_dir, "1", "model.py")
+        conda_environment_path = os.path.join(model_dir, conda_environment_name)
+
+        # Export
         create_path(model_path)
+        self.export_conda_environment(path=conda_environment_path)
         self.export_python(path=model_path)
         config.save(model_repository_path=model_repository_path)
+
         return config
 
 

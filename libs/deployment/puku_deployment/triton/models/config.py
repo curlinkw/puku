@@ -26,9 +26,14 @@ class TritonTensorConfig(BaseModel):
     data_type: str
 
 
+class Parameters(BaseModel):
+    type: str = "Parameters"
+    key: str
+    value: str
+
+
 class TritonModelConfig(BaseModel):
     name: str
-    platform: str
     input: list[TritonTensorConfig] = Field(default_factory=list)
     output: list[TritonTensorConfig] = Field(default_factory=list)
 
@@ -48,7 +53,8 @@ class TritonONNXModelConfig(TritonModelConfig):
 
 
 class TritonPythonModelConfig(TritonModelConfig):
-    platform: str = "python"
+    backend: str = "python"
+    parameters: Optional[Parameters] = None
 
 
 MapType = TypeVar("MapType")
@@ -221,6 +227,16 @@ def json_to_pbtxt(config: dict, indent: int = 2) -> str:
                         lines.append(f"{prefix_indent}{key} {{")
                         lines.extend(convert_json(_map, prefix_indent + indent_step))
                         lines.append(f"{prefix_indent}}}")
+                elif _type == "Parameters":
+                    lines.append(f"{prefix_indent}parameters: {{")
+                    lines.append(
+                        f"{prefix_indent + indent_step}key: {convert_value(key=key, value=value["key"])},"
+                    )
+                    lines.append(
+                        f"{prefix_indent + indent_step}value: {{"
+                        + f'string_value: "{value["value"]}"}}'
+                    )
+                    lines.append(f"{prefix_indent}}}")
                 else:
                     raise ValueError(f"Could not serialize type {_type}")
             else:
