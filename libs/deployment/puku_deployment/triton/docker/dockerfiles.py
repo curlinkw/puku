@@ -3,7 +3,7 @@ from puku_deployment.docker.dockerfiles import Dockerfile
 
 
 class TritonDockerfile(Dockerfile):
-    version: str = "24.03"
+    version: str = "24.12"
     workdir: str = "/workspace"
     dependencies: list[str] = []
 

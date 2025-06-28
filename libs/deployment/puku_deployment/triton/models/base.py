@@ -41,12 +41,6 @@ class TritonONNXModel(TritonModel):
         model_path = os.path.join(model_repository_path, config.name, "1", "model.onnx")
         create_path(model_path)
         self.export_onnx(path=model_path)
-        model_onnx: onnx.ModelProto = (
-            onnx.load(model_path)
-            if (self._model_onnx_cache is None)
-            else self._model_onnx_cache
-        )
-        config.set_io_from_onnx(model_onnx)
         config.save(model_repository_path=model_repository_path)
         return config
 

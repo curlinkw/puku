@@ -15,7 +15,7 @@ dependencies = [
     "accelerate (>=1.8.1,<2.0.0)",
     "onnxruntime-extensions (>=0.14.0,<0.15.0)",
     "spox (>=0.16.0,<0.17.0)",
-    "puku-core @ file:///home/curlink/workspace/projects/puku/libs/core",
+    "puku-core @ file:///home/curlinkw/workspace/projects/puku/libs/core",
     "docker (>=7.1.0,<8.0.0)",
 ]
 
