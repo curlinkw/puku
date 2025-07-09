@@ -1,0 +1,53 @@
+site_name: Puku Docs
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+  palette:
+    primary: teal
+    accent: deep orange
+
+plugins:
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          selection:
+            filters: ["!^_", "!^Test"]
+          rendering:
+            show_source: true
+            show_category_heading: true
+            # Group items by their module
+            group_by: "module"
+            # Optional: Sort modules alphabetically
+            groups_order: alphabetical
+            # Include objects from submodules
+            show_submodules: true
+  - autorefs
+  - search
+  - gen-files:
+      scripts:
+        - api.py
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+nav:
+  - puku:
+      - Overview: puku/guide.md
+      - API Reference: puku/api.md
+  - core:
+      - Getting Started: core/guide.md
+      - API Reference: core/api.md
+  - deployment:
+      - Getting Started: deployment/guide.md
+      - API Reference: deployment/api.md
+  - contributing:
+      - Getting Started: contributing.md
