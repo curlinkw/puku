@@ -106,8 +106,8 @@ class TritonPythonModel(TritonModel):
 
 
 class TritonEnsembleModel(TritonModel):
-    """Triton ensemble model, see here:
-    https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/ensemble_models.html#ensemble-models
+    """Triton ensemble model, see \
+        [here](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/ensemble_models.html#ensemble-models):
     """
 
     config: TritonEnsembleModelConfig

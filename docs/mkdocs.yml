@@ -7,8 +7,9 @@ theme:
     - navigation.sections
     - toc.integrate
   palette:
+    scheme: slate
     primary: teal
-    accent: deep orange
+    accent: teal
 
 plugins:
   - mkdocstrings:
@@ -40,8 +41,10 @@ markdown_extensions:
       anchor_linenums: true
 
 nav:
+  - concepts:
+      - Memory: concepts/memory.md
   - puku:
-      - Overview: puku/guide.md
+      - Getting Started: puku/guide.md
       - API Reference: puku/api.md
   - core:
       - Getting Started: core/guide.md

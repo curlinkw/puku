@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import List, Optional, TYPE_CHECKING
 from pydantic import Field
-from marko.block import Document
 from langchain_core.load.serializable import Serializable
 
 if TYPE_CHECKING:
     from puku_core.graphs.knowledge_trees.edges import BaseEdge
+    from puku_core.documents.markdown import MarkdownDocument
 
 
 class BaseNode(Serializable):
@@ -46,4 +46,8 @@ class TraversalNode(Serializable):
 class MarkdownNode(BaseNode):
     """Node that stores markdown data"""
 
-    data: Document
+    description: str
+    """What to store inside"""
+
+    data: MarkdownDocument
+    """Stored data"""
