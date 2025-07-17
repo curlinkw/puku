@@ -8,8 +8,8 @@ theme:
     - toc.integrate
   palette:
     scheme: slate
-    primary: teal
-    accent: teal
+    primary: black
+    accent: black
 
 plugins:
   - mkdocstrings:

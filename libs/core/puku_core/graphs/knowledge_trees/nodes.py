@@ -4,12 +4,14 @@ from typing import List, Optional, TYPE_CHECKING
 from pydantic import Field
 from langchain_core.load.serializable import Serializable
 
+from puku_core.load.hashable import UUIDHashable
+
 if TYPE_CHECKING:
     from puku_core.graphs.knowledge_trees.edges import BaseEdge
     from puku_core.documents.markdown import MarkdownDocument
 
 
-class BaseNode(Serializable):
+class BaseNode(UUIDHashable, Serializable):
     children: List[BaseEdge] = Field(default_factory=list)
 
     def descendants(self) -> List[TraversalNode]:
@@ -31,6 +33,9 @@ class BaseNode(Serializable):
     def is_lc_serializable(cls) -> bool:
         return True
 
+    def __hash__(self) -> int:
+        return super().__hash__()
+
 
 class TraversalNode(Serializable):
     """A Node with metadata returned during various traversals of the tree"""
@@ -51,3 +56,6 @@ class MarkdownNode(BaseNode):
 
     data: MarkdownDocument
     """Stored data"""
+
+    def __hash__(self) -> int:
+        return super().__hash__()
