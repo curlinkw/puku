@@ -2,7 +2,8 @@ from typing import Any
 from langchain_core.runnables.config import RunnableConfig
 
 from puku_core.documents.markdown import MarkdownDocument
-from puku_core.graphs.knowledge_trees.nodes import MarkdownNode, TraversalNode
+from puku_core.graphs.knowledge_trees.nodes.markdown import MarkdownNode
+from puku_core.graphs.knowledge_trees.nodes.traversal import TraversalNode
 from puku_core.graphs.knowledge_trees.types import (
     MarkdownUpdateRequest,
     MarkdownNodeAmendmentPropagation,
@@ -27,7 +28,7 @@ class HierarchicalMarkdownKnowledgeWriter(BaseKnowledgeWriter):
         amendment: dict[MarkdownNode, MarkdownDocument] = {input.node: input.amendment}
 
         for tnode in traversal:
-            node: MarkdownNode = tnode.node  # type: ignore
+            node: MarkdownNode = tnode.node
 
             amendment_propagation: MarkdownNodeAmendmentPropagation = (
                 self.amendment_splitter.invoke(
@@ -49,5 +50,5 @@ class HierarchicalMarkdownKnowledgeWriter(BaseKnowledgeWriter):
                 edge,
                 child_amendment,
             ) in amendment_propagation.children.items():
-                child: MarkdownNode = edge.child  # type: ignore
+                child: MarkdownNode = edge.child
                 amendment[child] = child_amendment
