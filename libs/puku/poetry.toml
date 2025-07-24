@@ -1,13 +1,2 @@
 [virtualenvs]
 in-project = true
-
-[tool.mkdocstrings]
-handlers = {
-  python = {
-    extra_paths = [
-      "libs/puku/puku",
-      "libs/core/puku_core"
-      "libs/deployment/puku_deployment"
-    ]
-  }
-}

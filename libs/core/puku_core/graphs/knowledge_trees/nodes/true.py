@@ -3,6 +3,7 @@
 from typing import List, Self, Generic
 from pydantic import Field
 
+from puku_core.graphs.knowledge_trees.edges.base import BaseEdge
 from puku_core.graphs.knowledge_trees.edges.metadata import (
     EdgeWithMetadata,
     EdgeMetadataType,
@@ -15,6 +16,10 @@ class TrueTreeNode(BaseNode, Generic[EdgeMetadataType]):
     children: List[EdgeWithMetadata[Self, EdgeMetadataType]] = Field(
         default_factory=list
     )
+
+    @property
+    def children_without_metadata(self) -> List[BaseEdge[Self]]:
+        return [child.edge for child in self.children]
 
     def descendants(self) -> List[TraversalNode[Self, EdgeMetadataType]]:
         """Return descendants in breadth-first search (BFS) traversal order."""
