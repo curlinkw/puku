@@ -1,5 +1,5 @@
-from typing import Annotated, Dict
-from pydantic import BaseModel, BeforeValidator
+from typing import Annotated, Any
+from pydantic import BeforeValidator
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables.config import RunnableConfig
@@ -15,6 +15,7 @@ from puku_core.graphs.knowledge_trees.writers.base import (
     BaseAmendmentSplitter,
 )
 from puku_core.documents.markdown import MarkdownDocument, render
+from puku.output_parsers.markdown import MarkdownOutputParser
 from puku.graphs.knowledge_trees.writers.schemas import AmendmentSplit
 from puku.prompts.validators import BasePromptValidationTemplate, has_template
 
@@ -25,11 +26,11 @@ class ChatModelAmendmentSplitter(BaseAmendmentSplitter):
         BeforeValidator(
             has_template(
                 template=BasePromptValidationTemplate(
-                    input_variables=[
+                    input_variables={
                         "node",
                         "edges_description",
                         "amendment",
-                    ]
+                    }
                 )
             )
         ),
@@ -76,3 +77,32 @@ class ChatModelAmendmentSplitter(BaseAmendmentSplitter):
         except OutputParserException:
             # some logic of retrying could be here
             return MarkdownNodeAmendmentPropagation(node=amendment, children={})
+
+
+class ChatModelNodeKnowledgeWriter(BaseKnowledgeWriter):
+    prompt: Annotated[
+        ChatPromptTemplate,
+        BeforeValidator(
+            has_template(
+                template=BasePromptValidationTemplate(
+                    input_variables={
+                        "node",
+                        "amendment",
+                    }
+                )
+            )
+        ),
+    ]
+    chat_model: BaseChatModel
+
+    def invoke(
+        self,
+        input: MarkdownUpdateRequest,
+        config: RunnableConfig | None = None,
+        **kwargs,
+    ) -> Any:
+        node: MarkdownNode = input.node
+        amendment: MarkdownDocument = input.amendment
+        node.data = (self.prompt | self.chat_model | MarkdownOutputParser()).invoke(
+            {"node": render(node.data), "amendment": render(amendment)}
+        )
